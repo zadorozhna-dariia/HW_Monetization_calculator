@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paywall Calculator — iOS / Android</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #171a23;
+    --panel-2: #1d212d;
+    --line: #2a2f3d;
+    --ink: #e8eaf0;
+    --ink-dim: #9aa1b3;
+    --ink-faint: #6b7180;
+    --ios: #5b8def;
+    --android: #3ddc84;
+    --a: #7c6cf0;
+    --b: #2dd4a7;
+    --good: #2dd4a7;
+    --warn: #f0a35b;
+    --bad: #ef6b6b;
+    --good-bg: rgba(45,212,167,0.12);
+    --warn-bg: rgba(240,163,91,0.12);
+    --bad-bg: rgba(239,107,107,0.12);
+    --weekly: #7c6cf0;
+    --monthly: #5b9def;
+    --yearly: #f0c05b;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 28px 20px 80px; }
+
+  header.top { text-align: center; margin-bottom: 22px; }
+  header.top h1 {
+    font-size: 22px; font-weight: 650; margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  header.top p { margin: 0; color: var(--ink-dim); font-size: 13px; }
+
+  /* Platform tabs */
+  .platform-tabs {
+    display: flex; gap: 8px; justify-content: center; margin: 0 0 18px;
+  }
+  .ptab {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border-radius: 10px;
+    background: var(--panel); border: 1px solid var(--line);
+    color: var(--ink-dim); cursor: pointer; font-weight: 550;
+    font-size: 13.5px; transition: all .15s;
+  }
+  .ptab .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .ptab[data-p="ios"] .dot { background: var(--ios); }
+  .ptab[data-p="android"] .dot { background: var(--android); }
+  .ptab[data-p="combined"] .dot { background: linear-gradient(90deg, var(--ios), var(--android)); }
+  .ptab.active { color: var(--ink); border-color: var(--ink-faint); background: var(--panel-2); }
+  .ptab.active[data-p="ios"] { border-color: var(--ios); }
+  .ptab.active[data-p="android"] { border-color: var(--android); }
+
+  /* Controls bar */
+  .controls {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 18px;
+    display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .ctrl-group { display: flex; align-items: center; gap: 10px; }
+  .ctrl-label { color: var(--ink-dim); font-size: 13px; }
+  .seg { display: inline-flex; background: var(--panel-2); border-radius: 8px; padding: 3px; }
+  .seg button {
+    border: 0; background: transparent; color: var(--ink-dim);
+    padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    font-weight: 550; transition: all .15s;
+  }
+  .seg button.active { background: var(--a); color: #fff; }
+  input[type=range] { width: 180px; accent-color: var(--ios); }
+  .horizon-val { color: var(--ink); font-weight: 600; min-width: 56px; }
+
+  /* Comparison columns */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px; position: relative;
+  }
+  .card.winner { border-color: var(--good); box-shadow: 0 0 0 1px var(--good-bg); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .card-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; }
+  .card-title .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .card.A .card-title .dot { background: var(--a); }
+  .card.B .card-title .dot { background: var(--b); }
+  .badge-winner {
+    background: var(--good-bg); color: var(--good); font-size: 11px;
+    font-weight: 650; padding: 3px 9px; border-radius: 20px; border: 1px solid var(--good);
+  }
+
+  /* Top inputs */
+  .top-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 5px; font-weight: 600; }
+  .field input {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink); padding: 8px 10px; border-radius: 8px; font-size: 14px;
+  }
+  .field input:focus { outline: none; border-color: var(--ios); }
+
+  /* Plans table */
+  .plans-label { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em; text-align: center; margin-bottom: 8px; font-weight: 600; }
+  table.plans { width: 100%; border-collapse: collapse; }
+  table.plans th {
+    font-size: 9.5px; color: var(--ink-faint); text-transform: uppercase;
+    letter-spacing: .03em; font-weight: 600; padding: 0 4px 6px; text-align: center; line-height: 1.25;
+  }
+  table.plans td { padding: 3px 3px; }
+  table.plans input, table.plans select {
+    width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--ink); padding: 6px 7px; border-radius: 7px; font-size: 13px; text-align: center;
+  }
+  table.plans input:focus, table.plans select:focus { outline: none; border-color: var(--ios); }
+  table.plans select { cursor: pointer; }
+  .type-weekly { color: var(--weekly); }
+  .type-monthly { color: var(--monthly); }
+  .type-yearly { color: var(--yearly); }
+  .type-biweekly { color: var(--good); }
+  .type-custom { color: var(--warn); }
+  .del-row { background: transparent !important; border: 0 !important; color: var(--ink-faint); cursor: pointer; font-size: 16px; padding: 0 !important; width: 22px !important; }
+  .del-row:hover { color: var(--bad); }
+  .add-plan {
+    width: 100%; margin-top: 8px; background: transparent;
+    border: 1px dashed var(--line); color: var(--ink-dim); padding: 9px;
+    border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .15s;
+  }
+  .add-plan:hover { border-color: var(--ink-faint); color: var(--ink); }
+
+  /* Plan chips */
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+  .chip {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 8px; text-align: center;
+  }
+  .chip .tag {
+    display: inline-block; font-size: 10px; font-weight: 650; padding: 2px 8px;
+    border-radius: 20px; margin-bottom: 6px;
+  }
+  .tag.weekly { background: rgba(124,108,240,.15); color: var(--weekly); }
+  .tag.monthly { background: rgba(91,157,239,.15); color: var(--monthly); }
+  .tag.yearly { background: rgba(240,192,91,.15); color: var(--yearly); }
+  .tag.biweekly { background: rgba(45,212,167,.15); color: var(--good); }
+  .tag.custom { background: rgba(240,163,91,.15); color: var(--warn); }
+  .chip .nm { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+  .chip .row { font-size: 11px; color: var(--ink-dim); line-height: 1.6; }
+  .chip .ltv { font-size: 13px; font-weight: 650; color: var(--ink); margin-top: 6px; }
+
+  /* Summary */
+  .summary { border-top: 1px solid var(--line); padding-top: 12px; }
+  .summary .line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+  .summary .line .k { color: var(--ink-dim); }
+  .summary .line .v { font-weight: 600; }
+  .summary .line .v.good { color: var(--good); }
+  .summary .line .v.warn { color: var(--warn); }
+  .summary .line .v.bad { color: var(--bad); }
+
+  .verdict {
+    margin-top: 14px; padding: 11px; border-radius: 10px; text-align: center;
+    font-weight: 600; font-size: 13.5px;
+  }
+  .verdict.good { background: var(--good-bg); color: var(--good); }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); }
+  .verdict.bad { background: var(--bad-bg); color: var(--bad); }
+
+  /* Chart */
+  .chart-card { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .chart-card h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; text-align: center; }
+  .chart-card .sub { text-align: center; color: var(--ink-dim); font-size: 12px; margin-bottom: 14px; }
+  .legend { display: flex; gap: 18px; justify-content: center; margin-top: 10px; font-size: 12px; color: var(--ink-dim); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  /* Notes */
+  .notes { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 22px; }
+  .notes h3 { text-align: center; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+  .notes p { color: var(--ink-dim); font-size: 12.5px; margin: 8px 0; }
+  .notes b { color: var(--ink); font-weight: 600; }
+  .notes em { color: var(--ink); font-style: italic; }
+
+  .platform-hint {
+    text-align: center; font-size: 12px; color: var(--ink-faint);
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Paywall Calculator</h1>
+    <p>Модель будь-якого міксу weekly / monthly / yearly підписок. Окремо для iOS та Android.</p>
+  </header>
+
+  <div class="platform-tabs" id="platformTabs">
+    <div class="ptab active" data-p="ios"><span class="dot"></span>iOS</div>
+    <div class="ptab" data-p="android"><span class="dot"></span>Android</div>
+    <div class="ptab" data-p="combined"><span class="dot"></span>Разом (blended)</div>
+  </div>
+  <div class="platform-hint" id="platformHint"></div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Порівняти</span>
+      <div class="seg" id="paywallCount">
+        <button data-n="2" class="active">2 пейволи</button>
+        <button data-n="3">3 пейволи</button>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Горизонт</span>
+      <input type="range" id="horizon" min="3" max="36" value="24" step="1">
+      <span class="horizon-val" id="horizonVal">24 міс</span>
+    </div>
+  </div>
+
+  <div class="cols" id="cols"></div>
+
+  <div class="chart-card">
+    <h3>Кумулятивний дохід на інстал vs CPI</h3>
+    <div class="sub">Суцільні лінії = накопичений чистий дохід на інстал. Пунктир = поріг CPI. Точка перетину = місяць окупності.</div>
+    <canvas id="chart" width="1100" height="380" style="width:100%; height:auto;"></canvas>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="notes">
+    <h3>Як рахується математика</h3>
+    <p><b>Типи підписок:</b> Weekly = 1 тиждень/цикл, 2 тижні, Monthly, Yearly — або <b>Custom</b> з будь-якою кількістю тижнів (напр. 11). Цикли/рік = 52 / кількість тижнів. Можна міксувати будь-яку комбінацію в межах одного пейволу.</p>
+    <p><b>I→Pay %:</b> частка інсталів що конвертуються в перший платіж на цьому плані. Сума по планах = загальна конверсія пейволу. Мікс планів виводиться з цих ваг.</p>
+    <p><b>Avg renewals:</b> очікувана кількість ребілів до відписки. Загальна кількість платежів = 1 + avg renewals (напр. 7 ребілів → 8 платежів). Per-cycle retention = <em>renewals / (1 + renewals)</em>, показано як "Ret/cycle".</p>
+    <p><b>Net revenue per install</b> = Σ (I→Pay % плану × LTV плану, після store cut). ROAS = це ÷ CPI. Правило: <b>шипити при ROAS ≥ 1.2× </b> з окупністю в межах вашого вікна капіталу.</p>
+    <p><b>Платформи:</b> iOS і Android рахуються окремо — у них різні CPI, ціни та ребіл рейти. Вкладка "Разом" показує blended-метрику зважену по обсягу інсталів кожної платформи.</p>
+  </div>
+</div>
+
+<script>
+// ---------- State ----------
+// weeks = length of one billing cycle. Presets just set a default weeks value.
+const TYPE_WEEKS = { weekly: 1, biweekly: 2, monthly: 4.345, yearly: 52, custom: 3 };
+function planWeeks(plan) {
+  // custom plans store their own .weeks; presets fall back to TYPE_WEEKS
+  if (plan.type === 'custom' && plan.weeks) return plan.weeks;
+  return TYPE_WEEKS[plan.type] || 1;
+}
+function cyclesPerYear(plan) { return 52 / planWeeks(plan); }
+function cycleLenMonths(plan) { return 12 / cyclesPerYear(plan); }
+
+function defaultPlans(platform, variant) {
+  // iOS converts better & higher price tolerance; Android cheaper & lower rebill
+  if (platform === 'ios') {
+    if (variant === 0) return [
+      { name:'Weekly',  type:'weekly',  price:2.99, ipay:3.0, renewals:10 },
+      { name:'Monthly', type:'monthly', price:9.99, ipay:4.0, renewals:4 },
+      { name:'Yearly',  type:'yearly',  price:49.99,ipay:1.5, renewals:1 },
+    ];
+    return [
+      { name:'Weekly',  type:'weekly',  price:3.99, ipay:2.0, renewals:8 },
+      { name:'Monthly', type:'monthly', price:12.99,ipay:6.0, renewals:5 },
+      { name:'Yearly',  type:'yearly',  price:59.99,ipay:2.0, renewals:2 },
+    ];
+  }
+  if (platform === 'android') {
+    if (variant === 0) return [
+      { name:'Weekly',  type:'weekly',  price:2.49, ipay:2.2, renewals:7 },
+      { name:'Monthly', type:'monthly', price:7.99, ipay:2.5, renewals:3 },
+      { name:'Yearly',  type:'yearly',  price:39.99,ipay:0.8, renewals:1 },
+    ];
+    return [
+      { name:'Weekly',  type:'weekly',  price:2.99, ipay:1.5, renewals:6 },
+      { name:'Monthly', type:'monthly', price:9.99, ipay:3.5, renewals:4 },
+      { name:'Yearly',  type:'yearly',  price:44.99,ipay:1.2, renewals:1 },
+    ];
+  }
+}
+
+const state = {
+  platform: 'ios',
+  paywallCount: 2,
+  horizon: 24,
+  // per-platform config
+  ios:     { cpi: 1.50, storeCut: 30, paywalls: [ {plans: defaultPlans('ios',0)}, {plans: defaultPlans('ios',1)}, {plans: defaultPlans('ios',0)} ], installShare: 60 },
+  android: { cpi: 0.80, storeCut: 30, paywalls: [ {plans: defaultPlans('android',0)}, {plans: defaultPlans('android',1)}, {plans: defaultPlans('android',0)} ], installShare: 40 },
+};
+
+// ---------- Math ----------
+function planLTV(plan, storeCut, horizonMonths) {
+  const cLen = cycleLenMonths(plan);
+  const totalPaymentsUncapped = 1 + plan.renewals;
+  const totalPayments = Math.min(totalPaymentsUncapped, Math.max(1, Math.floor(horizonMonths / cLen)));
+  const net = plan.price * (1 - storeCut/100);
+  return {
+    ltv: net * totalPayments,
+    payments: totalPayments,
+    retCycle: plan.renewals / (1 + plan.renewals),
+    net,
+    cycleLenMonths: cLen,
+  };
+}
+
+// cumulative net revenue per install up to month m
+function cumulativePerInstall(pw, cfg, m) {
+  let total = 0;
+  for (const plan of pw.plans) {
+    const cLen = cycleLenMonths(plan);
+    const net = plan.price * (1 - cfg.storeCut/100);
+    const maxPayments = 1 + plan.renewals;
+    const paymentsByMonth = Math.min(maxPayments, Math.floor(m / cLen) + 1);
+    const planRevPerPurchaser = net * Math.max(0, paymentsByMonth);
+    total += (plan.ipay/100) * planRevPerPurchaser;
+  }
+  return total;
+}
+
+function paywallMetrics(pw, cfg, horizon) {
+  let netRevPerInstall = 0;
+  let totalIpay = 0;
+  const chipData = [];
+  for (const plan of pw.plans) {
+    const l = planLTV(plan, cfg.storeCut, horizon);
+    netRevPerInstall += (plan.ipay/100) * l.ltv;
+    totalIpay += plan.ipay;
+    chipData.push({ plan, ...l });
+  }
+  // mix
+  chipData.forEach(c => c.mix = totalIpay > 0 ? (c.plan.ipay/totalIpay*100) : 0);
+  const ltvPerPurchaser = totalIpay > 0 ? (netRevPerInstall / (totalIpay/100)) : 0;
+  const roas = cfg.cpi > 0 ? netRevPerInstall / cfg.cpi : 0;
+  // payback month
+  let payback = null;
+  for (let m = 0; m <= horizon; m++) {
+    if (cumulativePerInstall(pw, cfg, m) >= cfg.cpi) { payback = m; break; }
+  }
+  return { netRevPerInstall, totalIpay, ltvPerPurchaser, roas, payback, chipData };
+}
+
+// blended combined
+function combinedConfig() {
+  const totalShare = state.ios.installShare + state.android.installShare || 1;
+  return { iosW: state.ios.installShare/totalShare, andW: state.android.installShare/totalShare };
+}
+
+// ---------- Render ----------
+const colsEl = document.getElementById('cols');
+
+function fmt(n, d=2) { return '$' + n.toFixed(d); }
+function pct(n, d=2) { return n.toFixed(d) + '%'; }
+function typeLabel(plan) {
+  if (plan.type === 'custom') return (plan.weeks||3) + ' тиж';
+  return { weekly:'Weekly', biweekly:'2 тижні', monthly:'Monthly', yearly:'Yearly' }[plan.type] || plan.type;
+}
+
+function render() {
+  // platform hint
+  const hintEl = document.getElementById('platformHint');
+  if (state.platform === 'combined') {
+    hintEl.textContent = `Blended за обсягом інсталів: iOS ${state.ios.installShare}% · Android ${state.android.installShare}%`;
+  } else {
+    const cfg = state[state.platform];
+    hintEl.textContent = `CPI та ціни редагуються окремо для цієї платформи`;
+  }
+
+  colsEl.innerHTML = '';
+  const n = state.paywallCount;
+  colsEl.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+  if (window.innerWidth <= 860) colsEl.style.gridTemplateColumns = '1fr';
+
+  if (state.platform === 'combined') {
+    renderCombined();
+    drawChart();
+    return;
+  }
+
+  const cfg = state[state.platform];
+  const metrics = [];
+  for (let i = 0; i < n; i++) {
+    metrics.push(paywallMetrics(cfg.paywalls[i], cfg, state.horizon));
+  }
+  // winner = highest ROAS
+  let winner = 0;
+  metrics.forEach((m, i) => { if (m.roas > metrics[winner].roas) winner = i; });
+
+  for (let i = 0; i < n; i++) {
+    colsEl.appendChild(renderCard(i, cfg, metrics[i], i === winner));
+  }
+  drawChart();
+}
+
+function renderCard(idx, cfg, m, isWinner) {
+  const letter = String.fromCharCode(65 + idx);
+  const card = document.createElement('div');
+  card.className = `card ${letter} ${isWinner ? 'winner' : ''}`;
+
+  const pw = cfg.paywalls[idx];
+
+  let html = `
+    <div class="card-head">
+      <div class="card-title"><span class="dot"></span>Пейвол ${letter}</div>
+      ${isWinner ? '<span class="badge-winner">Winner</span>' : ''}
+    </div>
+    <div class="top-inputs">
+      <div class="field">
+        <label>CPI ($)</label>
+        <input type="number" step="0.05" value="${cfg.cpi}" data-act="cpi">
+      </div>
+      <div class="field">
+        <label>Store cut (%)</label>
+        <input type="number" step="1" value="${cfg.storeCut}" data-act="storeCut">
+      </div>
+    </div>
+    <div class="plans-label">Плани</div>
+    <table class="plans">
+      <thead><tr>
+        <th>Назва</th><th>Тип</th><th>Ціна $</th><th>I→Pay %</th><th>Avg renewals</th><th></th>
+      </tr></thead>
+      <tbody>
+  `;
+  pw.plans.forEach((p, pi) => {
+    const isCustom = p.type === 'custom';
+    html += `<tr>
+      <td><input type="text" value="${p.name}" data-act="name" data-pi="${pi}"></td>
+      <td><select data-act="type" data-pi="${pi}" class="type-${p.type}">
+        <option value="weekly" ${p.type==='weekly'?'selected':''}>Weekly</option>
+        <option value="biweekly" ${p.type==='biweekly'?'selected':''}>2 тижні</option>
+        <option value="monthly" ${p.type==='monthly'?'selected':''}>Monthly</option>
+        <option value="yearly" ${p.type==='yearly'?'selected':''}>Yearly</option>
+        <option value="custom" ${p.type==='custom'?'selected':''}>Custom</option>
+      </select>
+      ${isCustom ? `<input type="number" min="0.5" step="0.5" value="${p.weeks||3}" data-act="weeks" data-pi="${pi}" title="Тижнів у циклі" style="margin-top:4px;">` : ''}
+      </td>
+      <td><input type="number" step="0.01" value="${p.price}" data-act="price" data-pi="${pi}"></td>
+      <td><input type="number" step="0.1" value="${p.ipay}" data-act="ipay" data-pi="${pi}"></td>
+      <td><input type="number" step="0.5" value="${p.renewals}" data-act="renewals" data-pi="${pi}"></td>
+      <td><button class="del-row" data-act="del" data-pi="${pi}">×</button></td>
+    </tr>`;
+  });
+  html += `</tbody></table>
+    <button class="add-plan" data-act="add">+ Додати план</button>
+    <div class="chips">`;
+
+  m.chipData.forEach(c => {
+    const w = planWeeks(c.plan);
+    const cycleLabel = w === 1 ? 'тижневий' : w === 52 ? 'річний' : (Math.abs(w-4.345)<0.01 ? 'місячний' : w + ' тиж');
+    html += `<div class="chip">
+      <span class="tag ${c.plan.type}">${typeLabel(c.plan)}</span>
+      <div class="nm">${c.plan.name}</div>
+      <div class="row">Мікс: ${c.mix.toFixed(1)}%</div>
+      <div class="row">Цикл: ${cycleLabel}</div>
+      <div class="row">Ret/cycle: ${(c.retCycle*100).toFixed(1)}%</div>
+      <div class="row">Платежів: ×${c.payments}</div>
+      <div class="ltv">LTV: ${fmt(c.ltv)}</div>
+    </div>`;
+  });
+
+  html += `</div>
+    <div class="summary">
+      <div class="line"><span class="k">Install→1st pay</span><span class="v">${pct(m.totalIpay)}</span></div>
+      <div class="line"><span class="k">LTV на покупця</span><span class="v">${fmt(m.ltvPerPurchaser)}</span></div>
+      <div class="line"><span class="k">Чистий дохід на інстал</span><span class="v">${fmt(m.netRevPerInstall)}</span></div>
+      <div class="line"><span class="k">CPI</span><span class="v">${fmt(cfg.cpi)}</span></div>
+      <div class="line"><span class="k">Маржа на інстал</span><span class="v ${m.netRevPerInstall-cfg.cpi>=0?'good':'bad'}">${fmt(m.netRevPerInstall - cfg.cpi)}</span></div>
+      <div class="line"><span class="k">ROAS</span><span class="v ${m.roas>=1.2?'good':m.roas>=1?'warn':'bad'}">${m.roas.toFixed(2)}x</span></div>
+      <div class="line"><span class="k">Окупність</span><span class="v">${m.payback===null?'> '+state.horizon+' міс':'Місяць '+m.payback}</span></div>
+    </div>
+  `;
+  card.innerHTML = html;
+
+  // wire events
+  card.querySelectorAll('[data-act]').forEach(el => {
+    const act = el.dataset.act;
+    if (act === 'add') { el.onclick = () => { pw.plans.push({name:'New', type:'weekly', price:1.99, ipay:1.0, renewals:3}); render(); }; return; }
+    if (act === 'del') { el.onclick = () => { if(pw.plans.length>1){pw.plans.splice(+el.dataset.pi,1); render();} }; return; }
+    if (act === 'cpi') { el.onchange = () => { cfg.cpi = parseFloat(el.value)||0; render(); }; return; }
+    if (act === 'storeCut') { el.onchange = () => { cfg.storeCut = parseFloat(el.value)||0; render(); }; return; }
+    // plan fields
+    const handler = () => {
+      const pi = +el.dataset.pi;
+      let v = el.value;
+      if (act !== 'name' && act !== 'type') v = parseFloat(v)||0;
+      pw.plans[pi][act] = v;
+      // when switching to custom, seed a default weeks value
+      if (act === 'type' && v === 'custom' && !pw.plans[pi].weeks) pw.plans[pi].weeks = 3;
+      render();
+    };
+    el.onchange = handler;
+  });
+
+  return card;
+}
+
+function renderCombined() {
+  const n = state.paywallCount;
+  const { iosW, andW } = combinedConfig();
+
+  // share editor card-like header
+  const shareBar = document.createElement('div');
+  shareBar.className = 'card';
+  shareBar.style.gridColumn = `1 / -1`;
+  shareBar.innerHTML = `
+    <div class="card-title" style="margin-bottom:14px;"><span class="dot" style="background:linear-gradient(90deg,var(--ios),var(--android))"></span>Розподіл інсталів між платформами</div>
+    <div class="top-inputs" style="grid-template-columns:1fr 1fr;">
+      <div class="field"><label>iOS share (%)</label><input type="number" step="1" value="${state.ios.installShare}" data-act="iosShare"></div>
+      <div class="field"><label>Android share (%)</label><input type="number" step="1" value="${state.android.installShare}" data-act="andShare"></div>
+    </div>
+    <div style="font-size:12px;color:var(--ink-faint);margin-top:8px;">Метрики нижче — зважене середнє по обсягу інсталів. Редагуй плани й CPI на вкладках iOS / Android.</div>
+  `;
+  shareBar.querySelector('[data-act="iosShare"]').onchange = e => { state.ios.installShare = parseFloat(e.target.value)||0; render(); };
+  shareBar.querySelector('[data-act="andShare"]').onchange = e => { state.android.installShare = parseFloat(e.target.value)||0; render(); };
+  colsEl.appendChild(shareBar);
+
+  // compute blended metrics per paywall index
+  const metrics = [];
+  for (let i = 0; i < n; i++) {
+    const mi = paywallMetrics(state.ios.paywalls[i], state.ios, state.horizon);
+    const ma = paywallMetrics(state.android.paywalls[i], state.android, state.horizon);
+    const blendedNet = mi.netRevPerInstall*iosW + ma.netRevPerInstall*andW;
+    const blendedCPI = state.ios.cpi*iosW + state.android.cpi*andW;
+    const blendedIpay = mi.totalIpay*iosW + ma.totalIpay*andW;
+    let payback = null;
+    for (let m=0;m<=state.horizon;m++){
+      const cum = cumulativePerInstall(state.ios.paywalls[i],state.ios,m)*iosW + cumulativePerInstall(state.android.paywalls[i],state.android,m)*andW;
+      if (cum >= blendedCPI){ payback=m; break; }
+    }
+    metrics.push({ blendedNet, blendedCPI, blendedIpay, roas: blendedCPI>0?blendedNet/blendedCPI:0, payback, mi, ma });
+  }
+  let winner = 0;
+  metrics.forEach((m,i)=>{ if(m.roas>metrics[winner].roas) winner=i; });
+
+  for (let i=0;i<n;i++){
+    const m = metrics[i];
+    const letter = String.fromCharCode(65+i);
+    const card = document.createElement('div');
+    card.className = `card ${letter} ${i===winner?'winner':''}`;
+    card.innerHTML = `
+      <div class="card-head"><div class="card-title"><span class="dot"></span>Пейвол ${letter} · blended</div>${i===winner?'<span class="badge-winner">Winner</span>':''}</div>
+      <div class="chips" style="grid-template-columns:1fr 1fr;">
+        <div class="chip"><span class="tag weekly" style="background:rgba(91,141,239,.15);color:var(--ios)">iOS</span><div class="row">ROAS ${m.mi.roas.toFixed(2)}x</div><div class="ltv">${fmt(m.mi.netRevPerInstall)}/inst</div></div>
+        <div class="chip"><span class="tag yearly" style="background:rgba(61,220,132,.15);color:var(--android)">Android</span><div class="row">ROAS ${m.ma.roas.toFixed(2)}x</div><div class="ltv">${fmt(m.ma.netRevPerInstall)}/inst</div></div>
+      </div>
+      <div class="summary">
+        <div class="line"><span class="k">Blended install→1st pay</span><span class="v">${pct(m.blendedIpay)}</span></div>
+        <div class="line"><span class="k">Blended дохід на інстал</span><span class="v">${fmt(m.blendedNet)}</span></div>
+        <div class="line"><span class="k">Blended CPI</span><span class="v">${fmt(m.blendedCPI)}</span></div>
+        <div class="line"><span class="k">Маржа на інстал</span><span class="v ${m.blendedNet-m.blendedCPI>=0?'good':'bad'}">${fmt(m.blendedNet-m.blendedCPI)}</span></div>
+        <div class="line"><span class="k">Blended ROAS</span><span class="v ${m.roas>=1.2?'good':m.roas>=1?'warn':'bad'}">${m.roas.toFixed(2)}x</span></div>
+        <div class="line"><span class="k">Окупність</span><span class="v">${m.payback===null?'> '+state.horizon+' міс':'Місяць '+m.payback}</span></div>
+      </div>
+    `;
+    colsEl.appendChild(card);
+  }
+}
+
+// ---------- Chart ----------
+function drawChart() {
+  const cv = document.getElementById('chart');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0,0,W,H);
+  const padL=58, padR=20, padT=20, padB=40;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+  const n = state.paywallCount;
+  const horizon = state.horizon;
+
+  // build series
+  const series = [];
+  const colors = ['#7c6cf0','#2dd4a7','#f0a35b'];
+  let cpiLines = [];
+
+  if (state.platform === 'combined') {
+    const { iosW, andW } = combinedConfig();
+    for (let i=0;i<n;i++){
+      const pts=[];
+      for(let m=0;m<=horizon;m++){
+        pts.push(cumulativePerInstall(state.ios.paywalls[i],state.ios,m)*iosW + cumulativePerInstall(state.android.paywalls[i],state.android,m)*andW);
+      }
+      series.push({pts,color:colors[i],label:'Пейвол '+String.fromCharCode(65+i)});
+    }
+    cpiLines.push(state.ios.cpi*iosW + state.android.cpi*andW);
+  } else {
+    const cfg = state[state.platform];
+    for (let i=0;i<n;i++){
+      const pts=[];
+      for(let m=0;m<=horizon;m++) pts.push(cumulativePerInstall(cfg.paywalls[i],cfg,m));
+      series.push({pts,color:colors[i],label:'Пейвол '+String.fromCharCode(65+i)});
+    }
+    cpiLines.push(cfg.cpi);
+  }
+
+  let maxY = 0;
+  series.forEach(s=>s.pts.forEach(v=>maxY=Math.max(maxY,v)));
+  cpiLines.forEach(c=>maxY=Math.max(maxY,c));
+  maxY = Math.max(maxY*1.1, 1);
+
+  const x = m => padL + (m/horizon)*plotW;
+  const y = v => padT + plotH - (v/maxY)*plotH;
+
+  // grid + axes
+  ctx.strokeStyle='#2a2f3d'; ctx.fillStyle='#6b7180'; ctx.font='11px system-ui'; ctx.lineWidth=1;
+  const ySteps=5;
+  for(let i=0;i<=ySteps;i++){
+    const v=maxY*i/ySteps, yy=y(v);
+    ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(W-padR,yy); ctx.globalAlpha=.4; ctx.stroke(); ctx.globalAlpha=1;
+    ctx.textAlign='right'; ctx.fillText('$'+v.toFixed(1), padL-8, yy+4);
+  }
+  ctx.textAlign='center';
+  for(let m=0;m<=horizon;m+=Math.max(1,Math.round(horizon/12))){
+    ctx.fillText(m, x(m), H-padB+18);
+  }
+  ctx.fillText('Місяць', padL+plotW/2, H-6);
+
+  // cpi dashed
+  ctx.setLineDash([5,4]); ctx.strokeStyle='#5b8def'; ctx.globalAlpha=.7;
+  cpiLines.forEach(c=>{ ctx.beginPath(); ctx.moveTo(padL,y(c)); ctx.lineTo(W-padR,y(c)); ctx.stroke(); });
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+
+  // series
+  series.forEach(s=>{
+    ctx.strokeStyle=s.color; ctx.lineWidth=2.5; ctx.beginPath();
+    s.pts.forEach((v,m)=>{ const xx=x(m),yy=y(v); m===0?ctx.moveTo(xx,yy):ctx.lineTo(xx,yy); });
+    ctx.stroke();
+  });
+
+  // legend
+  const lg = document.getElementById('legend'); lg.innerHTML='';
+  series.forEach(s=>{ const sp=document.createElement('span'); sp.innerHTML=`<i style="background:${s.color}"></i>${s.label}`; lg.appendChild(sp); });
+  const cpiSp=document.createElement('span'); cpiSp.innerHTML=`<i style="background:#5b8def;height:0;border-top:2px dashed #5b8def"></i>CPI`; lg.appendChild(cpiSp);
+}
+
+// ---------- Wire global controls ----------
+document.getElementById('platformTabs').querySelectorAll('.ptab').forEach(t=>{
+  t.onclick = () => {
+    document.querySelectorAll('.ptab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    state.platform = t.dataset.p;
+    render();
+  };
+});
+document.getElementById('paywallCount').querySelectorAll('button').forEach(b=>{
+  b.onclick = () => {
+    document.querySelectorAll('#paywallCount button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    state.paywallCount = +b.dataset.n;
+    render();
+  };
+});
+const hz = document.getElementById('horizon');
+hz.oninput = () => { state.horizon = +hz.value; document.getElementById('horizonVal').textContent = hz.value+' міс'; render(); };
+
+window.addEventListener('resize', render);
+render();
+</script>
+</body>
+</html>
